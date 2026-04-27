@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A project container for RAID items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "ownerId", "createdAt"]
+    },
+    "RAIDItem": {
+      "title": "RAID Item",
+      "description": "A Risk, Action, Issue, or Dependency item following PMI standards",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "type": { "type": "string", "enum": ["RISK", "ACTION", "ISSUE", "DEPENDENCY"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "CLOSED"] },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "owner": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "probability": { "type": "number", "description": "1-5 scale for Risks" },
+        "impact": { "type": "number", "description": "1-5 scale for Risks/Issues" },
+        "mitigationPlan": { "type": "string" },
+        "contingencyPlan": { "type": "string" },
+        "rootCause": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "creatorId": { "type": "string" }
+      },
+      "required": ["projectId", "type", "title", "status", "priority", "createdAt"]
+    },
+    "Stakeholder": {
+      "title": "Stakeholder",
+      "description": "A person interested in the project results",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Top-level project documents"
+    },
+    "/raidItems/{itemId}": {
+      "schema": "RAIDItem",
+      "description": "Flat list of RAID items across projects"
+    },
+    "/stakeholders/{stakeholderId}": {
+      "schema": "Stakeholder",
+      "description": "Global list of stakeholders for daily reporting"
+    }
+  }
+}

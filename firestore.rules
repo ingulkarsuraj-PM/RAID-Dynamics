@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Project Validation
+    function isValidProject(data) {
+      return data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.ownerId == request.auth.uid &&
+             data.createdAt is string;
+    }
+
+    match /projects/{projectId} {
+      allow create: if isSignedIn() && isValidProject(incoming());
+      allow update: if isOwner(existing().ownerId) && isValidProject(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+      allow read: if isSignedIn(); // Projects are visible to all signed-in users for collaboration
+      allow delete: if isOwner(existing().ownerId);
+    }
+
+    // RAID Item Validation
+    function isValidRAIDItem(data) {
+      return data.keys().hasAll(['projectId', 'type', 'title', 'status', 'priority', 'createdAt']) &&
+             data.projectId is string &&
+             data.type in ['RISK', 'ACTION', 'ISSUE', 'DEPENDENCY'] &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
+             data.status in ['OPEN', 'IN_PROGRESS', 'CLOSED'] &&
+             data.priority in ['LOW', 'MEDIUM', 'HIGH'] &&
+             data.createdAt is string &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('owner' in data) || (data.owner is string && data.owner.size() <= 100)) &&
+             (!('ownerEmail' in data) || (data.ownerEmail is string && data.ownerEmail.size() <= 100)) &&
+             (!('dueDate' in data) || (data.dueDate is string)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string)) &&
+             (!('creatorId' in data) || (data.creatorId is string)) &&
+             (!('probability' in data) || (data.probability is number && data.probability >= 1 && data.probability <= 5)) &&
+             (!('impact' in data) || (data.impact is number && data.impact >= 1 && data.impact <= 5)) &&
+             (!('mitigationPlan' in data) || (data.mitigationPlan is string && data.mitigationPlan.size() <= 2000)) &&
+             (!('contingencyPlan' in data) || (data.contingencyPlan is string && data.contingencyPlan.size() <= 2000)) &&
+             (!('rootCause' in data) || (data.rootCause is string && data.rootCause.size() <= 2000));
+    }
+
+    match /raidItems/{itemId} {
+      allow create: if isSignedIn() && isValidRAIDItem(incoming());
+      allow update: if isSignedIn() && isValidRAIDItem(incoming()) && (
+        // Allow full updates by project owner or item creator (simulated here as any signed in user for now, but could be hardened)
+        // In this app, collaborators can update items.
+        incoming().diff(existing()).affectedKeys().hasAny(['title', 'description', 'status', 'priority', 'owner', 'ownerEmail', 'dueDate', 'updatedAt'])
+      );
+      allow list: if isSignedIn(); // Basic collaborative read
+      allow get: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Stakeholder Validation
+    function isValidStakeholder(data) {
+      return data.keys().hasAll(['name', 'email', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             (!('role' in data) || data.role is string) &&
+             data.createdAt is string;
+    }
+
+    match /stakeholders/{stakeholderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidStakeholder(incoming());
+      allow update: if isSignedIn() && isValidStakeholder(incoming());
+      allow delete: if isSignedIn();
+    }
+  }
+}
